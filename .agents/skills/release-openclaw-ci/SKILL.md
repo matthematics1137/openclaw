@@ -653,15 +653,18 @@ for publication ordering and prepared/direct recovery.
   not distinguish staged from missing, and attempt status needs publisher
   authentication. Parent receipts and live-authority revalidation remain
   required; recovery does not turn a failed parent into successful evidence.
-- Before every child dispatch the parent sweeps a failed earlier parent's
+- Before the first child dispatch the parent sweeps all selected publishers for a failed earlier parent's
   `waiting`/`queued` children of the same release (ClawHub and core by the
   `parent=<run>/<attempt>` run title; plugin npm by the release SHA, only
   while no other publish parent is live): it
-  rejects their gate, cancels, and waits up to 5 minutes for GitHub to report
-  them cancelled (a waiting run takes ~2 minutes). A parent failure also
-  cancels its own waiting npm children. Only legacy children without a parent
-  identity in their title, or a live publisher job, still block with
-  `ClawHub dispatch blocked by waiting run`; sweep those by hand. List
+  attempts gate rejection and cancellation, then waits up to 5 minutes per workflow.
+  Rejection denied with 403 needs a reviewer; logs and the step summary include
+  the reject/cancel commands. Unconfirmed cancellation warns. Core npm has an
+  independent publish slot and rechecks its live parent, so it does not block;
+  plugin npm and ClawHub retain target-serialized slots and refuse before any
+  new dispatch if cancellation remains unconfirmed. Legacy unidentified ClawHub
+  children or live publishers also retain the dispatch guard. A parent failure
+  cancels its own waiting npm children. To clean up as a reviewer, list
   `workflow_dispatch` runs by `github-actions[bot]` created for this release,
   reject their gate, cancel:
   ```bash
