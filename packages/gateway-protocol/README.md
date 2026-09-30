@@ -132,9 +132,9 @@ it does not grant authorization.
 
 ### Retired worker tool imports
 
-The `WorkerSessionsSpawn*`, `WorkerSessionsSend*`, `WorkerSessionTool*`, and
-`WorkerPortal*` schemas, types, root validators, and associated feature/limit
-constants published in 2026.9.6 remain available for decoding older data. They do
+The `WorkerSessionsSpawn*`, `WorkerSessionsSend*`, `WorkerSessionTool*`,
+`WorkerPortal*`, and `WorkerPresence*` schemas, types, root validators, and associated
+feature/limit constants published in 2026.9.6 and 2026.9.7 remain available for decoding older data. They do
 not register or advertise the retired worker RPCs. Current workers use the
 prepared tool surface and `worker.gatewayTool` transport; migrate integrations to
 `WorkerGatewayTool*`. These imports can be removed only in an explicitly announced

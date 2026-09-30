@@ -36,6 +36,7 @@ export const validateWorkerHeartbeatParams = compile(S.WorkerHeartbeatParamsSche
 export const validateWorkerSessionsSpawnParams = compile(S.WorkerSessionsSpawnParamsSchema);
 export const validateWorkerSessionsSendParams = compile(S.WorkerSessionsSendParamsSchema);
 export const validateWorkerPortalParams = compile(S.WorkerPortalParamsSchema);
+export const validateWorkerPresenceParams = compile(S.WorkerPresenceParamsSchema);
 export const validateWorkerComputerParams = compile(WorkerComputerParamsSchema);
 
 export const validateWorkerTranscriptCommitParams = compile(

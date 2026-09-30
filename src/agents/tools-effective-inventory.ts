@@ -114,36 +114,6 @@ function buildToolInventoryNotices(params: {
   return undefined;
 }
 
-function applyProviderTransportNormalization(params: {
-  cfg: OpenClawConfig;
-  provider: string;
-  workspaceDir?: string;
-  runtimeModel: ProviderRuntimeModel;
-}): ProviderRuntimeModel {
-  const normalized = normalizeProviderTransportWithPlugin({
-    provider: params.provider,
-    modelId: params.runtimeModel.id,
-    config: params.cfg,
-    workspaceDir: params.workspaceDir,
-    context: {
-      config: params.cfg,
-      workspaceDir: params.workspaceDir,
-      provider: params.provider,
-      modelId: params.runtimeModel.id,
-      api: params.runtimeModel.api,
-      baseUrl: params.runtimeModel.baseUrl,
-    },
-  });
-  if (!normalized) {
-    return params.runtimeModel;
-  }
-  return {
-    ...params.runtimeModel,
-    api: normalized.api ?? params.runtimeModel.api,
-    baseUrl: normalized.baseUrl ?? params.runtimeModel.baseUrl,
-  } as ProviderRuntimeModel;
-}
-
 function resolveConfiguredFallbackApi(
   providerConfig: { api?: string; baseUrl?: string } | undefined,
 ): string {
@@ -182,6 +152,7 @@ function resolveStaticToolInventoryRuntimeModelContext(params: {
     cfg: params.cfg,
     workspaceDir,
   });
+  let runtimeModel: ProviderRuntimeModel;
   if (configuredModel) {
     // Configured model entries override the bundled catalog but inherit missing transport details.
     const configuredApi =
@@ -189,41 +160,48 @@ function resolveStaticToolInventoryRuntimeModelContext(params: {
       normalizeOptionalString(providerConfig?.api) ??
       normalizeOptionalString(bundledStaticModel?.api) ??
       resolveConfiguredFallbackApi(providerConfig);
-    const runtimeModel = applyProviderTransportNormalization({
-      cfg: params.cfg,
+    runtimeModel = {
+      ...bundledStaticModel,
+      ...configuredModel,
+      id: modelId,
+      name: configuredModel.name ?? bundledStaticModel?.name ?? configuredModel.id,
       provider,
-      workspaceDir,
-      runtimeModel: {
-        ...bundledStaticModel,
-        ...configuredModel,
-        id: modelId,
-        name: configuredModel.name ?? bundledStaticModel?.name ?? configuredModel.id,
-        provider,
-        api: configuredApi,
-        baseUrl:
-          normalizeOptionalString(configuredModel.baseUrl) ??
-          normalizeOptionalString(providerConfig?.baseUrl) ??
-          normalizeOptionalString(bundledStaticModel?.baseUrl),
-      } as ProviderRuntimeModel,
-    });
-    return {
-      modelApi: runtimeModel.api,
-      runtimeModel,
-    };
-  }
-  if (!bundledStaticModel) {
-    return {};
-  }
-  const runtimeModel = applyProviderTransportNormalization({
-    cfg: params.cfg,
-    provider,
-    workspaceDir,
-    runtimeModel: {
+      api: configuredApi,
+      baseUrl:
+        normalizeOptionalString(configuredModel.baseUrl) ??
+        normalizeOptionalString(providerConfig?.baseUrl) ??
+        normalizeOptionalString(bundledStaticModel?.baseUrl),
+    } as ProviderRuntimeModel;
+  } else if (bundledStaticModel) {
+    runtimeModel = {
       ...bundledStaticModel,
       api: normalizeOptionalString(providerConfig?.api) ?? bundledStaticModel.api,
       baseUrl: normalizeOptionalString(providerConfig?.baseUrl) ?? bundledStaticModel.baseUrl,
-    } as ProviderRuntimeModel,
+    } as ProviderRuntimeModel;
+  } else {
+    return {};
+  }
+  const normalized = normalizeProviderTransportWithPlugin({
+    provider,
+    modelId: runtimeModel.id,
+    config: params.cfg,
+    workspaceDir,
+    context: {
+      config: params.cfg,
+      workspaceDir,
+      provider,
+      modelId: runtimeModel.id,
+      api: runtimeModel.api,
+      baseUrl: runtimeModel.baseUrl,
+    },
   });
+  if (normalized) {
+    runtimeModel = {
+      ...runtimeModel,
+      api: normalized.api ?? runtimeModel.api,
+      baseUrl: normalized.baseUrl ?? runtimeModel.baseUrl,
+    } as ProviderRuntimeModel;
+  }
   return {
     modelApi: runtimeModel.api,
     runtimeModel,

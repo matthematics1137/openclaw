@@ -20,6 +20,13 @@ describe("released worker tool imports", () => {
       action: "open",
       port: 8080,
     } satisfies protocol.WorkerPortalParams;
+    const presence = {
+      toolCallId: "call",
+      action: "person",
+      person: "me",
+      include: ["devices"],
+      limit: 10,
+    } satisfies protocol.WorkerPresenceParams;
     const cases = [
       [
         protocol.validateWorkerSessionsSpawnParams,
@@ -38,6 +45,12 @@ describe("released worker tool imports", () => {
         protocol.WorkerPortalParamsSchema,
         portal,
         { ...portal, path: "relative" },
+      ],
+      [
+        protocol.validateWorkerPresenceParams,
+        protocol.WorkerPresenceParamsSchema,
+        presence,
+        { ...presence, limit: 101 },
       ],
     ] as const;
     for (const [validate, schema, valid, invalid] of cases) {
@@ -62,26 +75,28 @@ describe("released worker tool imports", () => {
     } satisfies protocol.WorkerSessionsSpawnResponseFrame;
     expectTypeOf<protocol.WorkerSessionsSendResponseFrame>().toEqualTypeOf<protocol.WorkerSessionsSpawnResponseFrame>();
     expectTypeOf<protocol.WorkerPortalResponseFrame>().toEqualTypeOf<protocol.WorkerSessionsSpawnResponseFrame>();
+    expectTypeOf<protocol.WorkerPresenceResponseFrame>().toEqualTypeOf<protocol.WorkerSessionsSpawnResponseFrame>();
     for (const name of [
       "WorkerSessionsSpawnParamsSchema",
       "WorkerSessionsSendParamsSchema",
       "WorkerPortalParamsSchema",
+      "WorkerPresenceParamsSchema",
       "WorkerSessionToolResultSchema",
       "WorkerSessionsSpawnResponseFrameSchema",
       "WorkerSessionsSendResponseFrameSchema",
       "WorkerPortalResponseFrameSchema",
+      "WorkerPresenceResponseFrameSchema",
     ] as const) {
       expect(protocol[name]).toBe(Schema[name]);
       expect(ProtocolSchemas).not.toHaveProperty(name.replace(/Schema$/, ""));
     }
-    expect(Schema.WorkerSessionToolResponseFrameSchema).toBe(
-      protocol.WorkerPortalResponseFrameSchema,
-    );
     for (const schema of [
       protocol.WorkerSessionsSpawnResponseFrameSchema,
       protocol.WorkerSessionsSendResponseFrameSchema,
       protocol.WorkerPortalResponseFrameSchema,
+      protocol.WorkerPresenceResponseFrameSchema,
     ]) {
+      expect(schema).toBe(Schema.WorkerSessionToolResponseFrameSchema);
       expect(Value.Check(schema, response)).toBe(true);
       expect(Value.Check(schema, { ...response, payload: { content: [] } })).toBe(false);
       expect(
@@ -102,17 +117,24 @@ describe("released worker tool imports", () => {
     for (const [name, value] of [
       ["WORKER_SESSION_TOOLS_PROTOCOL_FEATURE", "worker-session-tools-v1"],
       ["WORKER_PORTAL_PROTOCOL_FEATURE", "worker-portal-v1"],
+      ["WORKER_PRESENCE_PROTOCOL_FEATURE", "worker-presence-v1"],
     ] as const) {
       expect(protocol[name]).toBe(value);
       expect(Schema[name]).toBe(value);
       expect(protocol.WORKER_PROTOCOL_FEATURES).not.toContain(value);
     }
-    for (const method of ["worker.sessions.spawn", "worker.sessions.send", "worker.portal"]) {
+    for (const method of [
+      "worker.sessions.spawn",
+      "worker.sessions.send",
+      "worker.portal",
+      "worker.presence",
+    ]) {
       expect(protocol.WORKER_PROTOCOL_METHODS).not.toContain(method);
     }
     expectTypeOf<protocol.WorkerSessionsSpawnParams>().toEqualTypeOf<Schema.WorkerSessionsSpawnParams>();
     expectTypeOf<protocol.WorkerSessionsSendParams>().toEqualTypeOf<Schema.WorkerSessionsSendParams>();
     expectTypeOf<protocol.WorkerPortalParams>().toEqualTypeOf<Schema.WorkerPortalParams>();
+    expectTypeOf<protocol.WorkerPresenceParams>().toEqualTypeOf<Schema.WorkerPresenceParams>();
     expectTypeOf<protocol.WorkerSessionToolResult>().toEqualTypeOf<Schema.WorkerSessionToolResult>();
   });
 });

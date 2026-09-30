@@ -79,7 +79,7 @@ export const WorkerProtocolCloseReasonSchema = Type.Union([
 ]);
 
 export const WorkerErrorShapeSchema = closedObject({
-  code: Type.Enum(["INVALID_REQUEST", "UNAVAILABLE"]),
+  code: Type.Union([Type.Literal("INVALID_REQUEST"), Type.Literal("UNAVAILABLE")]),
   message: Type.String({ minLength: 1, maxLength: 256 }),
   details: closedObject({ reason: WorkerProtocolCloseReasonSchema }),
   retryable: Type.Optional(Type.Boolean()),

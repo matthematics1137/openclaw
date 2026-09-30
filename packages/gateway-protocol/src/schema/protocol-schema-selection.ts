@@ -183,6 +183,8 @@ const EXCLUDED_SCHEMA_EXPORTS = [
   "WorkerOperatingSystemSchema",
   "WorkerPortalParamsSchema",
   "WorkerPortalResponseFrameSchema",
+  "WorkerPresenceParamsSchema",
+  "WorkerPresenceResponseFrameSchema",
   "WorkerProtocolCloseReasonSchema",
   "WorkerProviderReplayStateSchema",
   "WorkerSessionToolResponseFrameSchema",
