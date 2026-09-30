@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 import { gatewayCredentialScope } from "@openclaw/gateway-client/browser";
+import { expectDefined } from "@openclaw/normalization-core";
 import { render } from "lit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "../components/login-gate.ts";
@@ -126,7 +127,7 @@ describe("warm boot app root", () => {
     expect(gate).not.toBeNull();
     const navigation = vi.spyOn(runtime!.router, "navigate");
     gate.props.onOpenGatewaySettings();
-    await navigation.mock.results[0].value;
+    await expectDefined(navigation.mock.results[0], "Gateway settings navigation").value;
     navigation.mockRestore();
     expect(runtime!.context.router.getState().matches[0]?.routeId).toBe("connection");
     draw();

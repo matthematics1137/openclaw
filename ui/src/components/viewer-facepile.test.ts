@@ -1,4 +1,5 @@
 import { ContextProvider, createContext } from "@lit/context";
+import { expectDefined } from "@openclaw/normalization-core";
 import { render } from "lit";
 /* @vitest-environment jsdom */
 import { afterEach, expect, it, vi } from "vitest";
@@ -230,7 +231,7 @@ it("shares the current self avatar with typed owner faces missing a revision", a
     ...gateway.snapshot,
     selfUser: { ...user, avatarUrl: "/api/users/profile-ada/avatar?v=8" },
   });
-  avatars[0].requestUpdate();
+  expectDefined(avatars[0], "explicit revision avatar").requestUpdate();
   await Promise.all(avatars.map((avatar) => avatar.updateComplete));
   expect(fetchAvatar.mock.calls.map(([url]) => url)).toEqual([
     "https://gateway.example.test/api/users/profile-ada/avatar?v=7",
@@ -250,7 +251,8 @@ it("shares the current self avatar with typed owner faces missing a revision", a
     { type: "legacy", actorType: "human", source: null, id: user.id },
   ] as const) {
     const avatar = document.createElement("openclaw-viewer-avatar");
-    avatar.user = { ...user, identity, avatarUrl: undefined };
+    avatar.user = { ...user, identity: undefined, avatarUrl: undefined };
+    avatar.identity = identity;
     provider.append(avatar);
     await avatar.updateComplete;
     expect(avatar.querySelector("img")).toBeNull();
