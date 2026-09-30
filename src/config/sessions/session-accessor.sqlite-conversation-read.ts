@@ -172,7 +172,8 @@ export function selectConversationRowsFromDatabase(
   if (channel) {
     query = query.where("c.channel", "=", channel);
   }
-  if (options.conversationRef) {
+  // A supplied reference must validate; an empty one fails instead of widening the lookup.
+  if (options.conversationRef !== undefined) {
     query = query.where(
       "c.conversation_id",
       "=",
