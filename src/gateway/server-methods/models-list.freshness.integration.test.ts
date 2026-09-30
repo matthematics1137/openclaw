@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { createServer, type ServerResponse } from "node:http";
 import { expect, it } from "vitest";
 import type { ModelsListResult } from "../../../packages/gateway-protocol/src/schema/agents-models-skills.js";
-import { createDeferred } from "../../../test/helpers/promise.js";
+import { createDeferred, withinTest } from "../../../test/helpers/promise.js";
 import { getPublishedPreparedModelCatalogOwnerSnapshot } from "../../agents/prepared-model-catalog.js";
 import { resolvePreparedModelRuntimeOwnerBySnapshot } from "../../agents/prepared-model-runtime.owner.js";
 import { createOpenClawTestState } from "../../test-utils/openclaw-test-state.js";
@@ -209,11 +209,12 @@ it.for([
         // Arm the response hold before making any accepted inventory due.
         failSibling = withSibling && !initiallyEmpty;
         expire(withSibling && !initiallyEmpty ? providers : [provider]);
-        const saved = await list();
+        // The renewal response stays held; bind waits to the test so a stall still reaches cleanup.
+        const saved = await withinTest(list(), signal);
         expect(saved.models.map((row) => row.id)).toEqual(original);
         expect(saved.siblingModels).toEqual(withSibling ? ["sibling"] : []);
-        await renewal.promise;
-        const concurrent = await Promise.all([list(), list()]);
+        await withinTest(renewal.promise, signal);
+        const concurrent = await withinTest(Promise.all([list(), list()]), signal);
         expect(concurrent.map((result) => result.models.map((row) => row.id))).toEqual([
           original,
           original,

@@ -169,12 +169,13 @@ function holdReclamationValidation(databasePath?: string) {
       void operation.catch(() => {});
       return operation;
     },
-    async entered(operation: Promise<unknown>) {
-      // An early response must not masquerade as a held native check.
+    async entered(operation: Promise<unknown>, testSignal: AbortSignal) {
+      // An early response must not masquerade as a held native check. The test signal
+      // ends the wait on timeout so the caller's finally still releases the gate.
       const waiting = new AbortController();
       const held = (async () => {
         while (Atomics.load(gate, 0) === 0) {
-          if (waiting.signal.aborted) {
+          if (waiting.signal.aborted || testSignal.aborted) {
             return undefined;
           }
           await yieldToEventLoop();
@@ -199,7 +200,9 @@ function holdReclamationValidation(databasePath?: string) {
   };
 }
 
-test("sessions.delete admits unrelated same-store patches during Worker validation", async () => {
+test("sessions.delete admits unrelated same-store patches during Worker validation", async ({
+  signal,
+}) => {
   const targetKey = "agent:main:validation-delete";
   const unrelatedKey = "agent:main:validation-patch";
   const { storePath } = await createSessionStoreDir();
@@ -221,7 +224,7 @@ test("sessions.delete admits unrelated same-store patches during Worker validati
       resolveSqliteTargetFromSessionStorePath(storePath, { agentId: "main" }).path,
     );
     const deletion = validation.own(rpcReq(ws, "sessions.delete", { key: targetKey }));
-    await validation.entered(deletion);
+    await validation.entered(deletion, signal);
     expect(loadSessionEntry({ sessionKey: targetKey, storePath })?.sessionId).toBe(
       "validation-delete",
     );
@@ -273,7 +276,9 @@ test("sessions.delete admits unrelated same-store patches during Worker validati
   }
 });
 
-test("sessions.delete rejects revoked authority before repairing the same database", async () => {
+test("sessions.delete rejects revoked authority before repairing the same database", async ({
+  signal,
+}) => {
   // This test invokes the lifecycle owner directly instead of the foreground RPC dispatcher.
   onTestFinished(retainSessionListForegroundWork());
   const sessionKey = "agent:main:validation-revoked";
@@ -322,7 +327,7 @@ test("sessions.delete rejects revoked authority before repairing the same databa
         },
       }),
     );
-    await validation.entered(deletion);
+    await validation.entered(deletion, signal);
     expect(readRepairIndex()).toBeUndefined();
     expect(openOpenClawAgentDatabase(databaseOptions)).toBe(database);
     expect(database.db.isOpen).toBe(true);
