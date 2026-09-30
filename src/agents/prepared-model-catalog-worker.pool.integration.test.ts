@@ -163,6 +163,37 @@ describe("Gateway catalog worker pool", () => {
     }
   });
 
+  it("counts an idle catalog worker exit before a request recovers it", async () => {
+    const observed = observeWorkers();
+    try {
+      const fixture = await createFleetFixture(observed.subscribe);
+      await Promise.all(fixture.snapshots.map((snapshot) => loadCompletedFullCatalog(snapshot)));
+      const { workerFailures } = getPreparedModelCatalogWorkerPoolSnapshot();
+      expect(getPreparedModelCatalogWorkerPoolSnapshot()).toMatchObject({
+        workers: 1,
+        activeTasks: 0,
+        pendingTasks: 0,
+      });
+      const warnings = workerFailureWarnings().length;
+      await observed.spawned[0]!.terminate();
+      // No request is waiting, so recovery and its warning wait; status already counts the exit.
+      expect(getPreparedModelCatalogWorkerPoolSnapshot()).toMatchObject({
+        workers: 0,
+        workerFailures: workerFailures + 1,
+      });
+      expect(workerFailureWarnings()).toHaveLength(warnings);
+      await expect(
+        loadPreparedModelRuntimeAuth(fixture.snapshots[0]!, { providerIds: [] }),
+      ).rejects.toThrow();
+      expect(getPreparedModelCatalogWorkerPoolSnapshot().workerFailures).toBe(workerFailures + 1);
+      expect(workerFailureWarnings().slice(warnings)).toEqual([
+        expect.stringMatching(/^model catalog worker failed; .*worker exited with code 1/),
+      ]);
+    } finally {
+      observed.close();
+    }
+  });
+
   it("retains only the admitted renewal failure when queued auth observes pool closure first", async ({
     signal,
   }) => {

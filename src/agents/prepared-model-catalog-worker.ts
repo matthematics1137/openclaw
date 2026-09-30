@@ -157,15 +157,18 @@ const gatewayCatalog = resolveGlobalSingleton<{
 }>(Symbol.for("openclaw.gatewayModelCatalogPool"), () => ({}));
 
 export function getPreparedModelCatalogWorkerPoolSnapshot() {
+  const { current, workerFailures = 0 } = gatewayCatalog;
   return {
-    ...(gatewayCatalog.current?.pool.getSnapshot() ?? {
+    ...(current?.pool.getSnapshot() ?? {
       maxWorkers: GATEWAY_CATALOG_WORKERS,
       workers: 0,
       workersCreated: 0,
       activeTasks: 0,
       pendingTasks: 0,
     }),
-    workerFailures: gatewayCatalog.workerFailures ?? 0,
+    // A worker that exits while idle closes its pool before any request starts recovery.
+    // Recovery records the failure and then closes the owner, so it is not counted again.
+    workerFailures: workerFailures + (current?.pool.isClosed && !current.closing ? 1 : 0),
   };
 }
 
@@ -250,9 +253,8 @@ async function getGatewayCatalogPool(
             // Background renewals swallow that rejection, so record it here, once per pool.
             if (!current.closing) {
               gatewayCatalog.workerFailures = (gatewayCatalog.workerFailures ?? 0) + 1;
-              const agents = borrowers.filter((borrower) => borrower.isCurrent()).length;
               log.warn(
-                `model catalog worker failed; republishing ${agents} agent catalog(s) on a new worker (failure ${gatewayCatalog.workerFailures} since start): ${formatErrorMessage(error)}`,
+                `model catalog worker failed; republishing ${borrowers.filter((borrower) => borrower.isCurrent()).length} agent catalog(s) on a new worker (failure ${gatewayCatalog.workerFailures} since start): ${formatErrorMessage(error)}`,
               );
             }
             for (const borrower of borrowers) {

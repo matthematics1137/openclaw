@@ -624,8 +624,10 @@ belong to the current pool lifetime. `workerPools.modelCatalog` also reports
 exited, or timed out) since the Gateway started. A failed pool is replaced, so this
 count survives replacement. Each failure also logs one
 `model catalog worker failed` warning with the worker's reason and the number of
-agent catalogs republished on a new worker. Shutdown and plugin retirement are not
-counted. The startup trace's `memory.ready` record also includes these pool counts.
+agent catalogs republished on a new worker. A worker that exits while idle is
+counted at once; its warning is logged when the next catalog request replaces it.
+Shutdown and plugin retirement are not counted. The startup trace's `memory.ready`
+record also includes these pool counts.
 
 These figures describe worker and task counts. Process RSS includes every isolate
 and native allocation; Node's process heap flags can override a worker's requested
