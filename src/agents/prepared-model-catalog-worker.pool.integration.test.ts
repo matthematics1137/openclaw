@@ -155,7 +155,7 @@ describe("Gateway catalog worker pool", () => {
       });
       expect(workerFailureWarnings().slice(warnings)).toEqual([
         expect.stringMatching(
-          /^model catalog worker failed; republishing \d+ agent catalog\(s\) on a new worker \(failure \d+ since start\): .*worker exited with code 1/,
+          /^model catalog worker failed; \d+ agent catalog\(s\) will be republished on a new worker \(failure \d+ since start\): .*worker exited with code 1/,
         ),
       ]);
     } finally {
@@ -163,7 +163,7 @@ describe("Gateway catalog worker pool", () => {
     }
   });
 
-  it("counts an idle catalog worker exit before a request recovers it", async () => {
+  it("logs and counts an idle catalog worker exit before a request recovers it", async () => {
     const observed = observeWorkers();
     try {
       const fixture = await createFleetFixture(observed.subscribe);
@@ -176,19 +176,20 @@ describe("Gateway catalog worker pool", () => {
       });
       const warnings = workerFailureWarnings().length;
       await observed.spawned[0]!.terminate();
-      // No request is waiting, so recovery and its warning wait; status already counts the exit.
+      // No request is waiting; the exit is still counted and logged before recovery starts.
       expect(getPreparedModelCatalogWorkerPoolSnapshot()).toMatchObject({
         workers: 0,
         workerFailures: workerFailures + 1,
       });
-      expect(workerFailureWarnings()).toHaveLength(warnings);
-      await expect(
-        loadPreparedModelRuntimeAuth(fixture.snapshots[0]!, { providerIds: [] }),
-      ).rejects.toThrow();
-      expect(getPreparedModelCatalogWorkerPoolSnapshot().workerFailures).toBe(workerFailures + 1);
       expect(workerFailureWarnings().slice(warnings)).toEqual([
         expect.stringMatching(/^model catalog worker failed; .*worker exited with code 1/),
       ]);
+      await expect(
+        loadPreparedModelRuntimeAuth(fixture.snapshots[0]!, { providerIds: [] }),
+      ).rejects.toThrow();
+      // Recovery replaces the worker without counting or logging the same failure again.
+      expect(getPreparedModelCatalogWorkerPoolSnapshot().workerFailures).toBe(workerFailures + 1);
+      expect(workerFailureWarnings()).toHaveLength(warnings + 1);
     } finally {
       observed.close();
     }
