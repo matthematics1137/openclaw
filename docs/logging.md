@@ -603,9 +603,9 @@ belong to the current pool lifetime. `workerPools.modelCatalog` also reports
 `workerFailures`: how many model-catalog workers have failed (run out of memory,
 exited, or timed out) since the Gateway started. A failed pool is replaced, so this
 count survives replacement. Each failure also logs one
-`model catalog worker failed` warning with the worker's reason and the number of
-agent catalogs republished on a new worker. A worker that exits while idle is
-counted at once; its warning is logged when the next catalog request replaces it.
+`model catalog worker failed` warning when it happens, with the worker's reason and
+the number of agent catalogs to republish on a new worker. A worker that exits while
+idle is counted and logged at once; the next catalog request replaces it.
 Shutdown and plugin retirement are not counted. The startup trace's `memory.ready`
 record also includes these pool counts.
 
