@@ -8,7 +8,10 @@ import { getReplyPayloadMetadata } from "../../../auto-reply/reply-payload.js";
 import { HEARTBEAT_TOKEN } from "../../../auto-reply/tokens.js";
 import { Agent } from "../../../plugin-sdk/agent-core.js";
 import { createHookRunner } from "../../../plugins/hooks.js";
+import { isVisibleAssistantResultEventForRun } from "../../../sessions/transcript-visible-record.js";
 import { createSubscribedSessionHarness } from "../../embedded-agent-subscribe.e2e-harness.js";
+import { readSubagentRunAnnounceResultUsing } from "../../subagents/announce/subagent-announce-result.js";
+import type { SubagentRunRecord } from "../../subagents/registry/subagent-registry.types.js";
 import { makeAssistantMessageFixture } from "../../test-helpers/assistant-message-fixtures.js";
 import { makeProviderModelFixture } from "../../test-helpers/provider-model-fixture.js";
 import { getCoreTtsAttemptResultMediaUrls } from "../../tools/tts-tool-result-provenance.js";
@@ -168,12 +171,13 @@ function settledToolMessages(): EmbeddedRunAttemptResult["messagesSnapshot"] {
 describe("attempt result projection", () => {
   it.each<[string[], string, number?]>([
     [["First part.", "Second part."], "First part.\nSecond part."],
+    [["River ", "stones."], "River\nstones."],
     [["NO_RE", "PLY\nFirst part.", "Second part."], "First part.\nSecond part."],
     [["First part.", "Second part.\n\nNO_REPLY"], "First part.\nSecond part."],
     [["First part.\n", "NO_", "REPLY"], "First part."],
     [["Legacy context.", "Signed answer."], "Legacy context.\nSigned answer.", 1],
     [["Legacy context.", "Signed answer.\n\nNO_REPLY"], "Signed answer.", 1],
-  ])("preserves native answer boundaries for %j", (parts, text, signedIndex) => {
+  ])("preserves native answer boundaries for %j", async (parts, text, signedIndex) => {
     const assistant = makeAssistantMessageFixture({
       stopReason: "stop",
       content: parts.map((part, index) => ({
@@ -196,6 +200,35 @@ describe("attempt result projection", () => {
     expect(
       buildPayloads({ ...result, currentAssistant: assistant, lastAssistant: assistant }),
     ).toMatchObject([{ text }]);
+    const prepared = expectDefined(result.preparedTerminalReply, "prepared terminal reply");
+
+    const child: SubagentRunRecord = {
+      runId: "run-1",
+      childSessionKey: "agent:main:subagent:rendering",
+      requesterSessionKey: "agent:main:main",
+      requesterDisplayKey: "main",
+      task: "Return the complete answer",
+      cleanup: "keep",
+      createdAt: 1,
+      execution: { status: "terminal", outcome: { status: "ok" } },
+      completion: { required: true, terminalReply: prepared.terminalReply },
+    };
+    const event = {
+      type: "message",
+      message: { ...assistant, __openclaw: { runId: child.runId } },
+    };
+    const announced = await readSubagentRunAnnounceResultUsing(child, {
+      readSubagentRun: () => child,
+      getRuntimeConfig: () => ({}),
+      resolveSessionStorePathCore: () => "/synthetic/rendering.sqlite",
+      readSubagentSessionEntry: async () => ({ sessionId: "rendering", updatedAt: 1 }),
+      findTranscriptEvent: async (_scope, match) =>
+        match.kind === "visible-final" && isVisibleAssistantResultEventForRun(event, match.runId)
+          ? { event }
+          : undefined,
+      findSessionTranscriptArchiveEventReadOnly: async () => undefined,
+    });
+    expect(announced.text).toBe(text);
   });
 
   it.each([
