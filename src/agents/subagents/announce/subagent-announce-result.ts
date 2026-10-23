@@ -108,6 +108,8 @@ export async function readSubagentRunAnnounceResultUsing(
                 phase: message.phase,
               },
             ).text,
+            // Parent review consumes media references as data, not channel attachments.
+            { extractMediaDirectives: false },
           ).text;
     if (!answer) {
       return {

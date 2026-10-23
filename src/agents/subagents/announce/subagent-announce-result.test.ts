@@ -163,6 +163,30 @@ describe("exact-run announcement results", () => {
     });
   });
 
+  it.each([
+    {
+      content:
+        "[[reply_to_current]]QA-PARENT-PRIVATE-CHILD1-0123456789ABCDEF0123456789ABCDEF\nMEDIA:./qa-private-result.png",
+      expected:
+        "QA-PARENT-PRIVATE-CHILD1-0123456789ABCDEF0123456789ABCDEF\nMEDIA:./qa-private-result.png",
+    },
+    {
+      content: [
+        { type: "text", text: "River " },
+        { type: "text", text: "stones.\nMEDIA:./qa-private-result.png" },
+      ],
+      expected: "River\nstones.\nMEDIA:./qa-private-result.png",
+    },
+  ])(
+    "retains child media references for parent review: $expected",
+    async ({ content, expected }) => {
+      const child = completedChild("captured native answer");
+      const event = assistant(child.runId, "");
+      installTranscript([{ ...event, message: { ...event.message, content } }]);
+      await expect(readResult(child)).resolves.toMatchObject({ text: expected });
+    },
+  );
+
   it("recovers the complete multipart native answer beyond the terminal snapshot", async () => {
     const first = "long answer ".repeat(500).trim();
     const text = `${first}\nrequired-final-part`;
