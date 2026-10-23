@@ -1031,7 +1031,6 @@ src/acp/tool-status.ts	1
 src/acp/translator.agent-events.ts	11
 src/acp/translator.prompt-stream.ts	5
 src/acp/translator.replay.ts	1
-src/acp/translator.session-lifecycle.ts	1
 src/acp/translator.session-state.ts	1
 src/agents/agent-bundle-lsp-runtime.ts	3
 src/agents/agent-bundle-mcp-combined.ts	1
@@ -2387,7 +2386,7 @@ ui/src/app/settings.ts	2
 ui/src/app/startup-settings.ts	1
 ui/src/app/user-profile.ts	2
 ui/src/app/web-push.runtime.ts	1
-ui/src/components/app-sidebar-session-narration.ts	4
+ui/src/components/app-sidebar-session-narration.ts	2
 ui/src/components/browser/browser-annotation.ts	1
 ui/src/components/browser/browser-client.ts	1
 ui/src/components/config-form.analyze.ts	1
