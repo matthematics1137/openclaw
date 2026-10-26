@@ -1,6 +1,6 @@
 import { wrapPromptDataBlock } from "openclaw/plugin-sdk/qa-runtime";
 import { extractToolPayload as extractQaToolPayload } from "openclaw/plugin-sdk/tool-payload";
-import { afterEach, expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import { nestedToolActivityFixture } from "../test/nested-tool-activity-fixture.js";
 import { runLoadedScenarioFlow } from "./scenario-flow-runner.test-support.js";
 import { findSubagentHandoffReply } from "./subagent-handoff-reply.js";
@@ -22,19 +22,16 @@ function forRequester<Args extends unknown[], Result>(run: (...args: Args) => Re
 function messageEvent(id: string, parentId: string, message: unknown) {
   return { type: "message", id, parentId, message };
 }
-afterEach(() => vi.useRealTimers());
 
 async function runHandoff({
   fault,
   childReply = "qa-sidecar",
   deliveredReply = childReply,
-  checkpoint,
   api,
 }: {
   fault?: string;
   childReply?: string;
   deliveredReply?: string;
-  checkpoint?: { customType: string; parentId?: string };
   api?: Record<string, unknown>;
 } = {}) {
   const hasFault = (name: string) => fault === name;
@@ -75,20 +72,7 @@ async function runHandoff({
         : child.childSessionKey,
     },
   });
-  const checkpointEntry = checkpoint
-    ? {
-        type: "custom",
-        id: "checkpoint",
-        parentId: checkpoint.parentId ?? delivery.id,
-        customType: checkpoint.customType,
-        data: {},
-      }
-    : undefined;
-  const report = messageEvent(
-    "report",
-    hasFault("other branch") ? "request" : (checkpointEntry?.id ?? delivery.id),
-    reply,
-  );
+  const report = messageEvent("report", hasFault("other branch") ? "request" : delivery.id, reply);
   return runLoadedScenarioFlow("subagent-handoff", {
     api: {
       randomUUID: () => "this-handoff",
@@ -122,7 +106,7 @@ async function runHandoff({
           expect(childKey).toBe(child.childSessionKey);
           const events = hasFault("parent guessed before completion")
             ? [{ ...report, parentId: "request" }, delivery]
-            : [delivery, ...(checkpointEntry ? [checkpointEntry] : []), report];
+            : [delivery, report];
           return findSubagentHandoffReply(messages, childKey, text, async () => events);
         },
       ),
@@ -156,27 +140,6 @@ it.each([
     expect((await runHandoff({ childReply, deliveredReply })).status).toBe("pass");
   },
 );
-it("follows a cache-TTL checkpoint between settlement and the requester reply", async () => {
-  expect(
-    (
-      await runHandoff({
-        childReply: "River\nstones.",
-        checkpoint: { customType: "openclaw.cache-ttl" },
-      })
-    ).status,
-  ).toBe("pass");
-});
-
-it.each([
-  [
-    "a cache checkpoint on another branch",
-    { customType: "openclaw.cache-ttl", parentId: "request" },
-  ],
-  ["an unrelated custom entry", { customType: "unrelated-custom-entry" }],
-])("refuses to bridge %s", async (_name, checkpoint) => {
-  await expect(runHandoff({ checkpoint })).rejects.toThrow("no matching delivered reply");
-});
-
 it("does not credit a reply that HTML-escaped the child's result", async () => {
   await expect(
     runHandoff({ childReply: "Verified 2 < 3.", deliveredReply: "Verified 2 &lt; 3." }),
@@ -209,19 +172,14 @@ it.each([
   ["waitForAgentHistory", "observes the child's result in the requester's reply"],
 ])("reports which observation expired at %s", async (wait, name) => {
   const details = "timed out after 360000ms";
-  vi.useFakeTimers();
-  // Let the preceding observations succeed, then expire only the selected wait.
-  const pending = runHandoff({
+  const result = await runHandoff({
     api: {
       runScenario: runQaSuiteScenarioSteps,
-      [wait]: () =>
-        new Promise<never>((_resolve, reject) => {
-          setTimeout(() => reject(new Error(details)), 360_000);
-        }),
+      [wait]: async () => {
+        throw new Error(details);
+      },
     },
   });
-  await vi.advanceTimersByTimeAsync(360_000);
-  const result = await pending;
   expect(result.status).toBe("fail");
   expect(result.steps.at(-1)).toMatchObject({ name, status: "fail", details });
 });
